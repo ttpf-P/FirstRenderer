@@ -2,7 +2,7 @@
 #include "boost/stacktrace.hpp"
 #include "CUcommons.hpp"
 
-#include "core/geometry.h"
+#include "core/geometry.cuh"
 
 
 __global__ void main_kernel(double *state){
