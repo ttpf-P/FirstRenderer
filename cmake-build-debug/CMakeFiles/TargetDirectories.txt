@@ -1,3 +1,0 @@
-E:/Paul/Cuda/Rendering/First/cmake-build-debug/CMakeFiles/First.dir
-E:/Paul/Cuda/Rendering/First/cmake-build-debug/CMakeFiles/edit_cache.dir
-E:/Paul/Cuda/Rendering/First/cmake-build-debug/CMakeFiles/rebuild_cache.dir
