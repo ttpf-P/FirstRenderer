@@ -3,57 +3,91 @@
 #include "CUcommons.hpp"
 
 #include "core/geometry.cuh"
-#include "classes/triangle.cuh"
+#include "core/rasterization.cuh"
+#include "classes/vertex_triangle.cuh"
 
-
-__global__ void main_kernel(double *state){
-    unsigned long long state2 = 88172645463325252ULL;
-    auto vec = vec3::random(state2);
-    auto vec_2 = vec3::random(state2);
-    auto vec_3 = dot(vec,vec_2);
-    *state = vec_3;
-}
+const unsigned long long state2 = 88172645463325252ULL;
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
-    std::cout << boost::stacktrace::stacktrace() << std::endl;
+    std::cerr << "Hello, World!" << std::endl;
+    std::cerr << boost::stacktrace::stacktrace() << std::endl;
 
-    //-------------------------geometry stage-------------------------
+    //-------------------------init stage-------------------------
+    // constants
+    size_t vertex_num = 4;
+    size_t triangle_num = 2;
+
+    size_t x_frag_num = 128;
+    size_t y_frag_num = 128;
+
+    // buffer declaration
     point3 *vertex_buf_old;
     point3 *vertex_buf_new;
 
-    size_t vertex_num = 3;
+    vertex_triangle *triangle_buf_old;
+    vertex_triangle *triangle_buf_new;
 
+    color *fragment_buf;
+
+    // buffer allocation
     checkCudaErrors(cudaMallocManaged(&vertex_buf_old, sizeof(point3)*vertex_num));
     checkCudaErrors(cudaMallocManaged(&vertex_buf_new, sizeof(point3)*vertex_num));
 
+    checkCudaErrors(cudaMallocManaged(&triangle_buf_old, sizeof(vertex_triangle)*triangle_num));
+    checkCudaErrors(cudaMallocManaged(&triangle_buf_new, sizeof(vertex_triangle)*triangle_num));
 
-    for (int i = 0; i < 3; ++i){
-        vertex_buf_old[i] = point3::random()+point3(0,0,1);
+    checkCudaErrors(cudaMallocManaged(&fragment_buf, sizeof(color)*x_frag_num*y_frag_num));
+
+    // fill buffers for testing
+    for (int i = 0; i < vertex_num; ++i){
+        vertex_buf_old[i] = point3::random(-1,1)+point3(0,0,2);
     }
 
-    std::cout << "initial vertex buffer" << std::endl;
-    std::cout << vertex_buf_old[0] << std::endl;
-    std::cout << vertex_buf_old[1] << std::endl;
-    std::cout << vertex_buf_old[2] << std::endl;
+    triangle_buf_old[0] = vertex_triangle(0,1,2);
+    triangle_buf_old[1] = vertex_triangle(1,2,3);
+
+    //-------------------------geometry stage-------------------------
+    std::cerr << "initial vertex buffer" << std::endl;
+    std::cerr << vertex_buf_old[0] << std::endl;
+    std::cerr << vertex_buf_old[1] << std::endl;
+    std::cerr << vertex_buf_old[2] << std::endl;
+    std::cerr << vertex_buf_old[3] << std::endl;
 
     projection_shader<<<1,3>>>(vertex_num, vertex_buf_old, vertex_buf_new,
                                point3(0,0,0), point3(0,0,1), 1);
-
     cudaDeviceSynchronize();
 
-    std::cout << "final vertex buffer";
-    std::cout << vertex_buf_new[0] << std::endl;
-    std::cout << vertex_buf_new[1] << std::endl;
-    std::cout << vertex_buf_new[2] << std::endl;
-
-    cudaFree(vertex_buf_old);
+    std::cerr << "final vertex buffer" << std::endl;
+    std::cerr << vertex_buf_new[0] << std::endl;
+    std::cerr << vertex_buf_new[1] << std::endl;
+    std::cerr << vertex_buf_new[2] << std::endl;
+    std::cerr << vertex_buf_new[3] << std::endl;
 
     //-------------------------rasterization stage-------------------------
+    rasterization_shader<<<128*4,32>>>(triangle_num, triangle_buf_old,
+                                       x_frag_num, y_frag_num, fragment_buf,
+                                       vertex_buf_new);
+    cudaDeviceSynchronize();
 
+
+    //-------------------------output stage-------------------------
+    std::cout << "P3\n" << x_frag_num << " " << y_frag_num << "\n255\n";
+    for (long long y = y_frag_num-1; y >= 0 ; --y) {
+        for (size_t x = 0; x < x_frag_num; x++){
+            std::cout << (int) (fragment_buf[x_frag_num*y+x].x()*255) << " "
+                 << (int) (fragment_buf[x_frag_num*y+x].y()*255) << " "
+                 << (int) (fragment_buf[x_frag_num*y+x].z()*255) << "\n";
+        }
+    }
+
+    //-------------------------cleanup stage-------------------------
+    cudaFree(vertex_buf_old);
     cudaFree(vertex_buf_new);
 
+    cudaFree(triangle_buf_old);
+    cudaFree(triangle_buf_new);
 
+    cudaFree(fragment_buf);
 
     cudaDeviceReset();
 
