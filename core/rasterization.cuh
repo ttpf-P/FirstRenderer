@@ -34,8 +34,8 @@ __global__ void rasterization_shader(size_t triangle_num, vertex_triangle *trian
     unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int stride = blockDim.x * gridDim.x;
     for (unsigned int frag_i = index; frag_i < x_frag_num * y_frag_num; frag_i += stride){
-        size_t y_i = frag_i % y_frag_num;
-        size_t x_i = (frag_i - y_i) / x_frag_num;
+        size_t x_i = frag_i % x_frag_num;
+        size_t y_i = (frag_i - x_i) / y_frag_num;
         double y_pos = ((double) y_i/(double) y_frag_num) * (double)(y_max-y_min) + (double)y_min;
         double x_pos = ((double) x_i/(double) x_frag_num) * (double)(x_max-x_min) + (double)x_min;
         double max_z = CUDART_MAX_NORMAL_F;
@@ -46,7 +46,7 @@ __global__ void rasterization_shader(size_t triangle_num, vertex_triangle *trian
                                 triangles[triangle_i].x(vertex_buffer),
                                 triangles[triangle_i].y(vertex_buffer),
                                 triangles[triangle_i].z(vertex_buffer))){
-                if (triangles[triangle_i].x(vertex_buffer).z() < max_z){ //TODO: calculate precise z coordinate
+                if (triangles[triangle_i].x(vertex_buffer).z() < max_z && triangles[triangle_i].x(vertex_buffer).z() > 0){ //TODO: calculate precise z coordinate
                     max_z = triangles[triangle_i].x(vertex_buffer).z();
                     fragment_buffer[frag_i] = color(1,0,triangle_i); //TODO: color
                 }
